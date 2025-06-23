@@ -8,13 +8,21 @@
 
 #include "MQTTCon.h"
 
+// passed variables
+static const uint32_t baud = MY_BAUD;
 static const char *ssid = MY_SSID;
 static const char *passwd = MY_PASSWD;
-static const char *udp_logger_ip = MY_UDP_LOGGER_IP;
-ADD a lot here
+static const char *mqttHost = MY_MQTT_HOST;
+static const uint16_t mqttPort = MY_MQTT_PORT;
+static const char *caCertFile = MY_CA_CERT_FILE;
+static const char *certFile = MY_CERT_FILE;
+static const char *keyFile = MY_KEY_FILE;
+
+// constants
 static uint16_t delay_medium = 250;
 
-UDPLogger udpLogger;
+// clas globals
+MQTTCon mqttCon;
 
 uint32_t currentMillis;
 uint32_t previousMillis = 0;
@@ -25,27 +33,27 @@ bool ledStatus = false;
 void wifi_setup(void) {
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, passwd);
-    udpLogger.log(udpLogger.INFO, "Connecting to WiFi ..");
+    Serial.println("Connecting to WiFi");
     while (WiFi.status() != WL_CONNECTED) {
-        udpLogger.log(udpLogger.DEBUG, "Waiting to connect");
+        Serial.println("Waiting to connect to WiFi");
         delay(delay_medium);
     }
-    udpLogger.log(udpLogger.INFO, WiFi.localIP().toString());
+    Serial.print("Local IP: ");
+    Serial.println(WiFi.localIP());
     WiFi.setAutoReconnect(true);
     WiFi.persistent(true);
 }
 
 void setup() {
-    udpLogger.initSerial();
-    udpLogger.initUDP(udp_logger_ip);
-    udpLogger.setLevel(udpLogger.DEBUG);
-    udpLogger.log(udpLogger.INFO, "Strarting");
+    Serial.begin(baud);
+    Serial.println("Started");
     pinMode(LED_BUILTIN, OUTPUT);
     wifi_setup();
+    mqttCon.setup(mqttHost, mqttPort, caCertFile, certFile, keyFile);
 }
 
 void blink(void) {
-    udpLogger.log(udpLogger.DEBUG, "Blink");
+    Serial.println("Blink");
     ledStatus = !ledStatus;
     digitalWrite(LED_BUILTIN, ledStatus);
 }
@@ -56,24 +64,19 @@ void loop() {
         blink();
         switch (WiFi.status()) {
             case WL_NO_SSID_AVAIL:
-                udpLogger.log(udpLogger.ERROR,
-                              "Configured SSID cannot be reached");
+                Serial.println("Configured SSID cannot be reached");
                 break;
             case WL_CONNECTED:
-                udpLogger.log(udpLogger.INFO,
-                              "Connection successfully established");
+                Serial.println("Connection successfully established");
                 break;
             case WL_CONNECT_FAILED:
-                udpLogger.log(udpLogger.WARNING, "Connection failed");
+                Serial.println("Connection failed");
                 break;
             default:
                 break;
         }
-        udpLogger.value("RSSI", WiFi.RSSI());
-        interval_count++;
-        if (interval_count == 10) {
-            udpLogger.setLevel(udpLogger.INFO);
-        }
+        Serial.print("RSSI: ");
+        Serial.println(WiFi.RSSI());
         previousMillis = currentMillis;
     }
 }

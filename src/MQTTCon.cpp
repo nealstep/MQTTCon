@@ -14,16 +14,27 @@
 WiFiClientSecure espClient;
 PubSubClient client(espClient);
 
-MQTTCon::MQTTCon(const char *mqttHost, uint16_t mqttPort, const char *caFile,
+MQTTCon::MQTTCon(void) {
+    error = NONE;
+}
+
+bool MQTTCon::setup(const char *mqttHost, uint16_t mqttPort, const char *caFile,
                  const char *certFile, const char *keyFile) {
     LittleFS.begin();
-    getCert(caFile, caCert);
-    getCert(certFile, clientCert);
-    getKey(keyFile, clientKey);
+    if (!getCert(caFile, caCert)) {
+        return false;
+    }
+    if (!getCert(certFile, clientCert)) {
+        return false;
+    }
+    if (!getKey(keyFile, clientKey)) {
+        return false;
+    }
     LittleFS.end();
     espClient.setSSLVersion(BR_TLS12, BR_TLS12);
-    //espClient.setCACert(caCert);
+    espClient.setTrustAnchors(caCert);
     espClient.setClientRSACert(clientCert, clientKey);
+    return true;
 }
 
 bool MQTTCon::getFile(const char *file, char buffer[MQTTCON_BUFFER_SIZE]) {

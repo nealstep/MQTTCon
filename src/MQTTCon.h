@@ -10,7 +10,8 @@ class MQTTCon {
    public:
     enum errors { NONE, TOO_BIG, SHORT_READ, NEW_FAILED };
     errors error;
-    MQTTCon(const char *mqttHost, uint16_t mqttPort, const char *caFile,
+    MQTTCon(void);
+    bool setup(const char *mqttHost, uint16_t mqttPort, const char *caFile,
             const char *certFile, const char *keyFile);
 
    private:
