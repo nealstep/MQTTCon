@@ -9,17 +9,24 @@
 #endif  // ESP8266 or ESP32
 
 #include <LittleFS.h>
+#include <WiFiUdp.h>
+#include <NTPClient.h>
 #include <PubSubClient.h>
 
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP);
 WiFiClientSecure espClient;
-PubSubClient client(espClient);
+PubSubClient mqttClient(espClient);
 
 MQTTCon::MQTTCon(void) {
     error = NONE;
+    strncpy(mqttID, WiFi.hostname().c_str(), MQTT_ID_SIZE - 2);
+    mqttID[MQTT_ID_SIZE - 1] = '\0';
 }
 
 bool MQTTCon::setup(const char *mqttHost, uint16_t mqttPort, const char *caFile,
                  const char *certFile, const char *keyFile) {
+    timeClient.begin();
     LittleFS.begin();
     if (!getCert(caFile, caCert)) {
         return false;
@@ -31,6 +38,8 @@ bool MQTTCon::setup(const char *mqttHost, uint16_t mqttPort, const char *caFile,
         return false;
     }
     LittleFS.end();
+    timeClient.update();
+    espClient.setX509Time(timeClient.getEpochTime());
     espClient.setSSLVersion(BR_TLS12, BR_TLS12);
     espClient.setTrustAnchors(caCert);
     espClient.setClientRSACert(clientCert, clientKey);
@@ -83,5 +92,23 @@ bool MQTTCon::getKey(const char *file, PrivateKey *key) {
         return false;
     }
     error = NONE;
+    return true;
+}
+
+bool MQTTCon::check() {
+    uint8_t count = 0;
+    
+    timeClient.update();
+    while (!mqttClient.connected()) {
+        if (mqttClient.connect(mqttID)) {
+            error = NONE;
+            break;
+        } else {
+            if (++count > MQTT_ERROR_MAX) {
+                error = CONNECT_FAILED;
+                return false;
+            }
+        }
+    }
     return true;
 }

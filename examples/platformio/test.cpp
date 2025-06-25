@@ -50,6 +50,7 @@ void setup() {
     pinMode(LED_BUILTIN, OUTPUT);
     wifi_setup();
     mqttCon.setup(mqttHost, mqttPort, caCertFile, certFile, keyFile);
+    mqttCon.check();
 }
 
 void blink(void) {
@@ -61,6 +62,7 @@ void blink(void) {
 void loop() {
     currentMillis = millis();
     if (currentMillis - previousMillis >= interval) {
+        mqttCon.check();
         blink();
         switch (WiFi.status()) {
             case WL_NO_SSID_AVAIL:
