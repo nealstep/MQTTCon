@@ -50,6 +50,7 @@ void setup() {
     pinMode(LED_BUILTIN, OUTPUT);
     wifi_setup();
     mqttCon.setup(mqttHost, mqttPort, caCertFile, certFile, keyFile);
+    Serial.println("MQTT setup");
     mqttCon.check();
 }
 

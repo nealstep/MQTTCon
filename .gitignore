@@ -6,3 +6,4 @@
 secret.*
 data/
 src/test.cpp
+certs.*

@@ -10,7 +10,7 @@
 
 class MQTTCon {
    public:
-    enum errors { NONE, TOO_BIG, SHORT_READ, NEW_FAILED, CONNECT_FAILED };
+    enum errors { NONE, TOO_BIG, SHORT_READ, NEW_FAILED, CONNECT_FAILED, BUFFER_NEW_FAILED};
     errors error;
     MQTTCon(void);
     bool setup(const char *mqttHost, uint16_t mqttPort, const char *caFile,
@@ -22,9 +22,9 @@ class MQTTCon {
     PrivateKey *clientKey;
     char mqttID[MQTT_ID_SIZE];
 
-    bool getFile(const char *file, char buffer[MQTTCON_BUFFER_SIZE]);
-    bool getCert(const char *file, X509List *list);
-    bool getKey(const char *file, PrivateKey *key);
+    bool getFile(const char *file, char *buffer, size_t len);
+    X509List *getCert(const char *file);
+    PrivateKey *getKey(const char *file);
 };
 
 #endif  // MQTTCON_H
