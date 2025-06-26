@@ -17,6 +17,8 @@ static const uint16_t mqttPort = MY_MQTT_PORT;
 static const char *caCertFile = MY_CA_CERT_FILE;
 static const char *certFile = MY_CERT_FILE;
 static const char *keyFile = MY_KEY_FILE;
+static const char *ntp_server = MY_NTP_SERVER;
+static const char *time_zone = MY_TIME_ZONE;
 
 // constants
 static uint16_t delay_medium = 250;
@@ -44,14 +46,46 @@ void wifi_setup(void) {
     WiFi.persistent(true);
 }
 
+// have ntp start within 5 seconds of network
+uint32_t sntp_startup_delay_MS_rfc_not_less_than_60000() {
+    randomSeed(A0);
+    return random(5000);
+}
+
+void printTime(void) {
+    time_t now = time(nullptr);
+    struct tm timeinfo;
+    localtime_r(&now, &timeinfo);
+    Serial.print("Local time: ");
+    Serial.print(asctime(&timeinfo));
+}
+
+void waitForTime(void) {
+    Serial.print("Waiting for NTP time sync: ");
+    time_t now = time(nullptr);
+    while (now < 8 * 3600 * 2) {
+        delay(500);
+        Serial.print(".");
+        now = time(nullptr);
+    }
+    Serial.println("");
+    printTime();
+}
+
 void setup() {
     Serial.begin(baud);
     Serial.println("Started");
     pinMode(LED_BUILTIN, OUTPUT);
+    configTime(time_zone, ntp_server);
     wifi_setup();
+    waitForTime();
     mqttCon.setup(mqttHost, mqttPort, caCertFile, certFile, keyFile);
     Serial.println("MQTT setup");
-    mqttCon.check();
+    if (mqttCon.check()) {
+        Serial.println("MQTT Connected");
+    } else {
+        Serial.println("MQTT Connect Failed");
+    }
 }
 
 void blink(void) {
@@ -63,7 +97,12 @@ void blink(void) {
 void loop() {
     currentMillis = millis();
     if (currentMillis - previousMillis >= interval) {
-        mqttCon.check();
+        printTime();
+        if (mqttCon.check()) {
+            Serial.println("MQTT Connected");
+        } else {
+            Serial.println("MQTT Connect Failed");
+        }
         blink();
         switch (WiFi.status()) {
             case WL_NO_SSID_AVAIL:
