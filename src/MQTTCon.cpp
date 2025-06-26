@@ -18,13 +18,14 @@ PubSubClient mqttClient(espClient);
 
 MQTTCon::MQTTCon(void) {
     error = NONE;
-    strncpy(mqttID, WiFi.getHostname(), MQTT_ID_SIZE - 2);
-    mqttID[MQTT_ID_SIZE - 1] = '\0';
     mqtt = &mqttClient;
 }
 
 bool MQTTCon::setup(const char *mqttHost, uint16_t mqttPort, const char *caFile,
-                    const char *certFile, const char *keyFile) {
+                    const char *certFile, const char *keyFile,
+                    const char *healthTopic) {
+    strncpy(mqttID, WiFi.getHostname(), MQTT_ID_SIZE - 2);
+    mqttID[MQTT_ID_SIZE - 1] = '\0';
     mqttClient.setServer(mqttHost, mqttPort);
     LittleFS.begin();
 #if defined(ESP8266)
@@ -60,6 +61,10 @@ bool MQTTCon::setup(const char *mqttHost, uint16_t mqttPort, const char *caFile,
     espClient.setCertificate(clientCert);
     espClient.setPrivateKey(clientKey);
 #endif  // ESP
+    if (snprintf(health, TOPIC_SIZE, "%s/%s", healthTopic, mqttID) < 1) {
+        strncpy(health, healthTopic, TOPIC_SIZE - 2);
+        health[TOPIC_SIZE - 1] = '\0';
+    }
     return true;
 }
 
@@ -126,11 +131,20 @@ PrivateKey *MQTTCon::getKey(const char *file) {
 }
 #endif  // ESP8266
 
+void MQTTCon::getTimeStamp(char *buffer, size_t len) {
+    time_t now = time(nullptr);
+    struct tm timeInfo;
+    gmtime_r(&now, &timeInfo);
+    if (!strftime(buffer, len, "%Y-%m-%d@%H:%M:%S", &timeInfo)) {
+        buffer[0] = '\0';
+    }
+}
+
 bool MQTTCon::check() {
     uint8_t count = 0;
 
     while (!mqttClient.connected()) {
-        if (mqttClient.connect(mqttID)) {
+        if (mqttClient.connect(mqttID, health, 0, false, "died")) {
             break;
         } else {
             if (++count > MQTT_ERROR_MAX) {
@@ -139,7 +153,9 @@ bool MQTTCon::check() {
             }
         }
     }
-    mqttClient.publish("test", "check");
+    getTimeStamp(timeStr, TIME_STR_SIZE);
+    snprintf(aliveMsg, ALIVE_MSG_SIZE, "alive@%s", timeStr);
+    mqttClient.publish(health, aliveMsg);
     error = NONE;
     return true;
 }

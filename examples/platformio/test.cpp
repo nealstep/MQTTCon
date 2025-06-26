@@ -19,6 +19,7 @@ static const uint16_t mqttPort = MY_MQTT_PORT;
 static const char *caCertFile = MY_CA_CERT_FILE;
 static const char *certFile = MY_CERT_FILE;
 static const char *keyFile = MY_KEY_FILE;
+static const char *healthTopic = MY_HEALTH_TOPIC;
 static const char *ntpServer = MY_NTP_SERVER;
 static const char *timeZone = MY_TIME_ZONE;
 
@@ -26,6 +27,8 @@ static const char *timeZone = MY_TIME_ZONE;
 static const uint16_t delayMedium = 250;
 static const uint16_t delayLong = 1000;
 static const uint32_t interval = 30000;
+static const uint8_t waitMax = 25;
+static const uint8_t timeStrLen = 32;
 
 // major classes
 MQTTCon mqttCon;
@@ -37,10 +40,15 @@ uint16_t interval_count = 0;
 bool ledStatus = false;
 
 void wifi_setup(void) {
+    uint8_t count=0;
+
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, passwd);
     Serial.println("Connecting to WiFi");
     while (WiFi.status() != WL_CONNECTED) {
+        if (++count > waitMax) {
+            esp_restart();
+        }
         Serial.println("Waiting to connect to WiFi");
         delay(delayMedium);
     }
@@ -60,16 +68,21 @@ uint32_t sntp_startup_delay_MS_rfc_not_less_than_60000() {
 
 void printTime(void) {
     time_t now = time(nullptr);
-    struct tm timeinfo;
-    localtime_r(&now, &timeinfo);
+    struct tm timeInfo;
+    localtime_r(&now, &timeInfo);
     Serial.print("Local time: ");
-    Serial.print(asctime(&timeinfo));
+    Serial.print(asctime(&timeInfo));
 }
 
 void waitForTime(void) {
+    uint8_t count=0;
+
     Serial.print("Waiting for NTP time sync: ");
     time_t now = time(nullptr);
     while (now < 8 * 3600 * 2) {
+        if (++count > waitMax) {
+            esp_restart();
+        }
         delay(500);
         Serial.print(".");
         now = time(nullptr);
@@ -92,7 +105,7 @@ void setup() {
     tzset();
 #endif  // ESP32
     waitForTime();
-    mqttCon.setup(mqttHost, mqttPort, caCertFile, certFile, keyFile);
+    mqttCon.setup(mqttHost, mqttPort, caCertFile, certFile, keyFile, healthTopic);
     Serial.println("MQTT setup");
     if (mqttCon.check()) {
         Serial.println("MQTT Connected");
@@ -108,6 +121,7 @@ void blink(void) {
 }
 
 void loop() {
+    mqttCon.loop();
     currentMillis = millis();
     if (currentMillis - previousMillis >= interval) {
         printTime();
