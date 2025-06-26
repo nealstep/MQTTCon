@@ -11,7 +11,6 @@
 #endif  // ESP8266 or ESP32
 
 #include <LittleFS.h>
-#include <PubSubClient.h>
 #include <time.h>
 
 WiFiClientSecure espClient;
@@ -21,6 +20,7 @@ MQTTCon::MQTTCon(void) {
     error = NONE;
     strncpy(mqttID, WiFi.hostname().c_str(), MQTT_ID_SIZE - 2);
     mqttID[MQTT_ID_SIZE - 1] = '\0';
+    mqtt = &mqttClient;
 }
 
 bool MQTTCon::setup(const char *mqttHost, uint16_t mqttPort, const char *caFile,

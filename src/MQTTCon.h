@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <WiFiClientSecure.h>
+#include <PubSubClient.h>
 
 #define MQTTCON_BUFFER_SIZE 2048
 #define MQTT_ID_SIZE 16
@@ -12,6 +13,8 @@ class MQTTCon {
    public:
     enum errors { NONE, TOO_BIG, SHORT_READ, NEW_FAILED, CONNECT_FAILED };
     errors error;
+    PubSubClient *mqtt;
+
     MQTTCon(void);
     bool setup(const char *mqttHost, uint16_t mqttPort, const char *caFile,
                const char *certFile, const char *keyFile);
