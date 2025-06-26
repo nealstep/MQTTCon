@@ -18,7 +18,7 @@ PubSubClient mqttClient(espClient);
 
 MQTTCon::MQTTCon(void) {
     error = NONE;
-    strncpy(mqttID, WiFi.hostname().c_str(), MQTT_ID_SIZE - 2);
+    strncpy(mqttID, WiFi.getHostname(), MQTT_ID_SIZE - 2);
     mqttID[MQTT_ID_SIZE - 1] = '\0';
     mqtt = &mqttClient;
 }
@@ -27,6 +27,7 @@ bool MQTTCon::setup(const char *mqttHost, uint16_t mqttPort, const char *caFile,
                     const char *certFile, const char *keyFile) {
     mqttClient.setServer(mqttHost, mqttPort);
     LittleFS.begin();
+#if defined(ESP8266)
     caCert = getCert(caFile);
     if (!caCert) {
         return false;
@@ -39,11 +40,26 @@ bool MQTTCon::setup(const char *mqttHost, uint16_t mqttPort, const char *caFile,
     if (!clientKey) {
         return false;
     }
+#elif defined(ESP32)
+    caCert = new char[MQTTCON_BUFFER_SIZE];
+    getFile(caFile, caCert, MQTTCON_BUFFER_SIZE);
+    clientCert = new char[MQTTCON_BUFFER_SIZE];
+    getFile(certFile, clientCert, MQTTCON_BUFFER_SIZE);
+    clientKey = new char[MQTTCON_BUFFER_SIZE];
+    getFile(keyFile, clientKey, MQTTCON_BUFFER_SIZE);
+#endif  // ESP
     LittleFS.end();
 
+#if defined(ESP8266)
     espClient.setSSLVersion(BR_TLS12, BR_TLS12);
     espClient.setTrustAnchors(caCert);
     espClient.setClientRSACert(clientCert, clientKey);
+#elif defined(ESP32)
+    // does not seem to be away to force TLS1.2
+    espClient.setCACert(caCert);
+    espClient.setCertificate(clientCert);
+    espClient.setPrivateKey(clientKey);
+#endif  // ESP
     return true;
 }
 
@@ -64,6 +80,7 @@ bool MQTTCon::getFile(const char *file, char *buffer, size_t len) {
     return true;
 }
 
+#if defined(ESP8266)
 X509List *MQTTCon::getCert(const char *file) {
     char *buffer;
     X509List *list;
@@ -107,6 +124,7 @@ PrivateKey *MQTTCon::getKey(const char *file) {
     error = NONE;
     return key;
 }
+#endif  // ESP8266
 
 bool MQTTCon::check() {
     uint8_t count = 0;

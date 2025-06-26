@@ -2,6 +2,8 @@
 
 #if defined(ESP8266)
 #include <ESP8266WiFi.h>
+#elif defined(ESP32)
+#include <WiFi.h>
 #else
 #error "Not supported"
 #endif  // ESP8266
@@ -17,18 +19,20 @@ static const uint16_t mqttPort = MY_MQTT_PORT;
 static const char *caCertFile = MY_CA_CERT_FILE;
 static const char *certFile = MY_CERT_FILE;
 static const char *keyFile = MY_KEY_FILE;
-static const char *ntp_server = MY_NTP_SERVER;
-static const char *time_zone = MY_TIME_ZONE;
+static const char *ntpServer = MY_NTP_SERVER;
+static const char *timeZone = MY_TIME_ZONE;
 
-// constants
-static uint16_t delay_medium = 250;
+// global constants
+static const uint16_t delayMedium = 250;
+static const uint16_t delayLong = 1000;
+static const uint32_t interval = 30000;
 
-// clas globals
+// major classes
 MQTTCon mqttCon;
 
+// global variables
 uint32_t currentMillis;
 uint32_t previousMillis = 0;
-uint32_t interval = 30000;
 uint16_t interval_count = 0;
 bool ledStatus = false;
 
@@ -38,7 +42,7 @@ void wifi_setup(void) {
     Serial.println("Connecting to WiFi");
     while (WiFi.status() != WL_CONNECTED) {
         Serial.println("Waiting to connect to WiFi");
-        delay(delay_medium);
+        delay(delayMedium);
     }
     Serial.print("Local IP: ");
     Serial.println(WiFi.localIP());
@@ -46,11 +50,13 @@ void wifi_setup(void) {
     WiFi.persistent(true);
 }
 
+#if defined(ESP8266)
 // have ntp start within 5 seconds of network
 uint32_t sntp_startup_delay_MS_rfc_not_less_than_60000() {
     randomSeed(A0);
     return random(5000);
 }
+#endif  // ESP8266
 
 void printTime(void) {
     time_t now = time(nullptr);
@@ -74,10 +80,17 @@ void waitForTime(void) {
 
 void setup() {
     Serial.begin(baud);
+    delay(delayLong * 5);
     Serial.println("Started");
     pinMode(LED_BUILTIN, OUTPUT);
-    configTime(time_zone, ntp_server);
     wifi_setup();
+#if defined(ESP8266)
+    configTime(timeZone, ntpServer);
+#elif defined(ESP32)
+    configTime(0, 0, ntpServer);
+    setenv("TZ", timeZone, 1);
+    tzset();
+#endif  // ESP32
     waitForTime();
     mqttCon.setup(mqttHost, mqttPort, caCertFile, certFile, keyFile);
     Serial.println("MQTT setup");
@@ -109,7 +122,8 @@ void loop() {
                 Serial.println("Configured SSID cannot be reached");
                 break;
             case WL_CONNECTED:
-                Serial.println("Connection successfully established");
+                Serial.print("Connected. RSSI: ");
+                Serial.println(WiFi.RSSI());
                 break;
             case WL_CONNECT_FAILED:
                 Serial.println("Connection failed");
@@ -117,8 +131,6 @@ void loop() {
             default:
                 break;
         }
-        Serial.print("RSSI: ");
-        Serial.println(WiFi.RSSI());
         previousMillis = currentMillis;
     }
 }

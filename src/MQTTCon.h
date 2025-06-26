@@ -2,8 +2,8 @@
 #define MQTTCON_H
 
 #include <Arduino.h>
-#include <WiFiClientSecure.h>
 #include <PubSubClient.h>
+#include <WiFiClientSecure.h>
 
 #define MQTTCON_BUFFER_SIZE 2048
 #define MQTT_ID_SIZE 16
@@ -21,13 +21,24 @@ class MQTTCon {
     bool check();
 
    private:
-    X509List *caCert, *clientCert;
+#ifdef ESP8266
+    X509List *caCert;
+    X509List *clientCert;
     PrivateKey *clientKey;
+#elif defined(ESP32)
+    char *caCert;
+    char *clientCert;
+    char *clientKey;
+#endif  // ESP
     char mqttID[MQTT_ID_SIZE];
 
     bool getFile(const char *file, char *buffer, size_t len);
+#if defined(ESP8266)
     X509List *getCert(const char *file);
     PrivateKey *getKey(const char *file);
+#elif defined(ESP32)
+
+#endif  // ESP
 };
 
 #endif  // MQTTCON_H
